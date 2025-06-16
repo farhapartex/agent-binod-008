@@ -65,7 +65,6 @@ class ComprehensiveLangChainAgent:
         for i, doc in enumerate(texts):
             doc.metadata = {"chunk_id": i, "source": "langchain_docs", "created_at": datetime.now().isoformat()}
 
-        # create vector store
         self.vector_store = FAISS.from_documents(texts, self.embedding)
 
     def setup_tools(self):
@@ -81,6 +80,7 @@ class ComprehensiveLangChainAgent:
             except Exception as e:
                 return f"Error searching knowledge base: {str(e)}"
 
+        # TODO: will make it dynamic later
         tools = [
             Tool(
                 name="Weather",
@@ -115,16 +115,46 @@ class ComprehensiveLangChainAgent:
             Tool(
                 name="learning_plan",
                 description="Create a comprehensive learning plan with summary, questions, and next steps for any topic. Input should be a topic you want to study.",
-                func=lambda topic: str(self.sequential_chain.invoke({"topic": topic})),
+                func=lambda topic: self._format_learning_plan(self.sequential_chain.invoke({"topic": topic})),
             ),
             Tool(
                 name="topic_analysis",
                 description="Get both a summary and interesting questions about a topic simultaneously. Input should be any topic you want analyzed.",
-                func=lambda topic: str(self.parallel_chain.invoke({"topic": topic})),
+                func=lambda topic: self._format_topic_analysis(self.parallel_chain.invoke({"topic": topic})),
             )
         ]
 
         return tools
+
+    def _format_learning_plan(self, result: Dict) -> str:
+        """Format learning plan result for better readability"""
+        try:
+            formatted = f"""**Learning Plan for {result.get('topic', 'Unknown Topic').title()}**
+                **Summary:**
+                {result.get('summary', 'No summary available')}
+            
+                ❓ **Key Questions to Explore:**
+                {result.get('questions', 'No questions available')}
+            
+                **Next Steps:**
+                {result.get('next_steps', 'No next steps available')}
+                """
+            return formatted.strip()
+        except Exception as e:
+            return f"Error formatting learning plan: {str(e)}"
+
+    def _format_topic_analysis(self, result: Dict) -> str:
+        """Format topic analysis result for better readability"""
+        try:
+            formatted = f"""🔍 **Topic Analysis**
+                **Summary:**
+                {result.get('summary', 'No summary available')}
+                ❓ **Interesting Questions:**
+                {result.get('questions', 'No questions available')}
+                """
+            return formatted.strip()
+        except Exception as e:
+            return f"Error formatting topic analysis: {str(e)}"
 
 
     def setup_chains(self):
@@ -210,27 +240,29 @@ class ComprehensiveLangChainAgent:
         )
 
         summary_prompt = PromptTemplate.from_template("Provide a brief summary of: {topic}")
-        questions_prompt = PromptTemplate.from_template("Based on this summary: {summary}\n\nGenerate 3 interesting questions:")
+        questions_prompt = PromptTemplate.from_template("Generate 3 interesting questions about: {topic}")
 
         self.parallel_chain = RunnableParallel(
             summary=summary_prompt | self.llm | StrOutputParser(),
             questions=questions_prompt | self.llm | StrOutputParser()
         )
 
-        def extract_summary(result: Dict) -> Dict:
-            """Extract summary for next step"""
-            return {"summary": result["summary"]}
+        def create_learning_plan(inputs: Dict) -> Dict:
+            topic = inputs.get("topic", "")
+            parallel_result = self.parallel_chain.invoke({"topic": topic})
+            next_steps_prompt = PromptTemplate.from_template(
+                "For the topic '{topic}', provide 3 specific and actionable next steps for learning more about it."
+            )
+            next_steps = (next_steps_prompt | self.llm | StrOutputParser()).invoke({"topic": topic})
 
-        followup_prompt = PromptTemplate.from_template(
-            "Based on this summary: {summary}\n\nProvide 3 actionable next steps for learning more."
-        )
-        self.sequential_chain = (
-                self.parallel_chain
-                | RunnableLambda(extract_summary)
-                | (RunnablePassthrough.assign(
-            next_steps=followup_prompt | self.llm | StrOutputParser()
-        ))
-        )
+            return {
+                "topic": topic,
+                "summary": parallel_result["summary"],
+                "questions": parallel_result["questions"],
+                "next_steps": next_steps
+            }
+
+        self.sequential_chain = RunnableLambda(create_learning_plan)
 
         def route_question(question: str) -> str:
             """Route questions to appropriate templates"""
