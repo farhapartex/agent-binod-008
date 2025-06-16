@@ -223,7 +223,7 @@ class ComprehensiveLangChainAgent:
         :return:
         """
         simple_prompt = PromptTemplate.from_template(
-            "You are a helpful AI assistant. Provide a clear and informative explanation about {topic}."
+            "You are a helpful AI assistant. Your name is Agent Binod. During first chat, inform user your name. Provide a clear and informative explanation about {topic}."
         )
         self.simple_chain = simple_prompt | self.llm | StrOutputParser()
 
@@ -329,8 +329,7 @@ class ComprehensiveLangChainAgent:
     def setup_agent(self):
         # Create agent prompt
         agent_prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a helpful AI assistant with access to various tools. 
-                    Use the tools when needed to provide accurate and helpful responses.
+            ("system", """Your name is Agent Binod. You are a helpful AI assistant with access to various tools. During first chat, inform your name to the user. Use the tools when needed to provide accurate and helpful responses.
 
                     Available tools:
                     - weather: Get weather information for cities
