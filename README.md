@@ -16,6 +16,7 @@ Agent Binod is a comprehensive LangChain-powered AI agent that showcases the ful
 - 🎯 **Expert Analysis** - Get specialized responses from science, history, and technology experts
 - 📖 **Learning Plans** - Generate comprehensive study plans for any topic
 - 💡 **Topic Analysis** - Get summaries and thought-provoking questions simultaneously
+- 📊 **CSV Data Analysis** - Load, analyze, and get insights from CSV files
 
 
 ## 🛠️ Setup Instructions
@@ -88,6 +89,35 @@ Once running, you can use these special commands:
 - **`memory`** - View conversation history
 
 ### Example Conversations
+
+#### 📊 CSV Data Analysis
+```
+You: Load the CSV file at /home/user/data/sales.csv
+
+Agent: ✅ CSV Loaded Successfully!
+📁 File: sales.csv
+📊 Shape: 1,000 rows × 8 columns
+📋 Columns: date, product, sales, region, price...
+🔧 Delimiter: ',' | Encoding: utf-8
+
+You: Do a general analysis of the data
+
+Agent: 📈 General Data Analysis
+- Total Records: 1,000
+- Numeric Columns: 3
+- Categorical Columns: 4
+- Missing Data: 25 cells
+- Complete Rows: 975 (97.5%)
+...
+
+You: Show correlation analysis
+
+Agent: 🔗 Correlation Analysis
+Strong Correlations (|r| > 0.7):
+- sales ↔ price: 0.823 (positive)
+- region ↔ sales: -0.745 (negative)
+...
+```
 
 #### 🌤️ Weather Queries
 ```
