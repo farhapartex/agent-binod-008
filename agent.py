@@ -1,86 +1,37 @@
 from dotenv import load_dotenv
 from datetime import datetime
-from typing import List, Dict, Any
-import requests
+from typing import Dict, Any
 import os
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
-from langchain_core.output_parsers import StrOutputParser, PydanticOutputParser
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableParallel
 from langchain_core.tools import Tool
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_community.tools import DuckDuckGoSearchRun, WikipediaQueryRun
+from langchain_core.messages import HumanMessage
+from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.vectorstores import FAISS
-from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import CharacterTextSplitter
 from langchain.memory import ChatMessageHistory
-from pydantic import BaseModel, Field
+
+
+from agent_libs.tools import CalculatorTool, CustomOutputParser
+from agent_libs.weather import WeatherTool
 
 load_dotenv()
 
-OPENAI_API_KEY = os.get_env("OPEN_API_KEY")
-
-
-class ParsedResponse(BaseModel):
-    """Structured response model for output parsing"""
-    response: str = Field(description="The main response text")
-    word_count: int = Field(description="Number of words in response")
-    timestamp: str = Field(description="When the response was generated")
-    category: str = Field(description="Category of the response")
-
-class CustomOutputParser(PydanticOutputParser):
-    """Custom output parser to demonstrate LangChain parsing capabilities"""
-
-    def __init__(self):
-        super().__init__(pydantic_object=ParsedResponse)
-
-
-class WeatherTool:
-    def __init__(self):
-        self.name = "Weather"
-        self.description = "Get current weather information for a city"
-
-    def run(self, city: str) -> str:
-        """Simulate weather API call"""
-        # TODO: will call a weather API later
-        weather_data = {
-            "New York": "Sunny, 22°C",
-            "London": "Cloudy, 15°C",
-            "Tokyo": "Rainy, 18°C",
-            "Paris": "Partly cloudy, 20°C"
-        }
-        return weather_data.get(city, f"Weather data not available for {city}")
-
-
-class CalculatorTool:
-    """Custom calculator tool"""
-
-    def __init__(self):
-        self.name = "Calculator"
-        self.description = "Perform basic mathematical calculations"
-
-    def run(self, expression: str) -> str:
-        """Safely evaluate mathematical expressions"""
-        try:
-            # Only allow safe mathematical operations
-            expression = expression.strip()
-            allowed_chars = set('0123456789+-*/.() ')
-            if not all(c in allowed_chars for c in expression):
-                return "Error: Invalid characters in expression"
-
-            if any(dangerous in expression for dangerous in ['__', 'import', 'exec', 'eval']):
-                return "Error: Invalid expression"
-
-            result = eval(expression)
-            return f"Result: {result}"
-        except Exception as e:
-            return f"Error: {str(e)}"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 
 class ComprehensiveLangChainAgent:
     def __init__(self):
-        self.llm = ChatOpenAI(temperature=0.7, model="gpt-3.5-turbo", max_tokens=1000)
+        self.llm = ChatOpenAI(
+            temperature=0.7,
+            model="gpt-3.5-turbo",
+            max_tokens=1000,
+            api_key=OPENAI_API_KEY
+        )
         self.embedding = OpenAIEmbeddings()
         self.memory = ChatMessageHistory()
         self.setup_vector_store()
@@ -118,7 +69,7 @@ class ComprehensiveLangChainAgent:
         self.vector_store = FAISS.from_documents(texts, self.embedding)
 
     def setup_tools(self):
-        weather_tool =WeatherTool()
+        weather_tool =WeatherTool(api_key=WEATHER_API_KEY)
         calculator_tool = CalculatorTool()
         search_tool = DuckDuckGoSearchRun()
         wikipedia_tool = WikipediaAPIWrapper()
@@ -155,6 +106,21 @@ class ComprehensiveLangChainAgent:
                 name="VectorSearch",
                 func=vector_search,
                 description="Search internal knowledge base for LangChain-related information."
+            ),
+            Tool(
+                name="expert_analysis",
+                description="Get specialized expert analysis for science, history, technology, or general topics. Input should be a question or topic you want analyzed by the appropriate expert.",
+                func=lambda query: self.routing_chain.invoke(query),
+            ),
+            Tool(
+                name="learning_plan",
+                description="Create a comprehensive learning plan with summary, questions, and next steps for any topic. Input should be a topic you want to study.",
+                func=lambda topic: str(self.sequential_chain.invoke({"topic": topic})),
+            ),
+            Tool(
+                name="topic_analysis",
+                description="Get both a summary and interesting questions about a topic simultaneously. Input should be any topic you want analyzed.",
+                func=lambda topic: str(self.parallel_chain.invoke({"topic": topic})),
             )
         ]
 
@@ -412,8 +378,6 @@ class ComprehensiveLangChainAgent:
 
     def chat_with_agent(self, message: str):
         """Chat with the main agent"""
-        #print(f"\nAgent Chat")
-        #print(f"You: {message}")
 
         try:
             # Add to memory
