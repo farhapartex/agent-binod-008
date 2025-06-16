@@ -34,7 +34,7 @@ git clone https://github.com/farhapartex/agent-binod-008
 cd agent-binod
 ```
 
-### 2. Install Dependencies
+### 2. Install Dependencies (without docker)
 
 ```bash
 pip install -r requirements.txt
@@ -67,17 +67,28 @@ agent-binod/
 ├── agent_libs/
 │   ├── tools.py          # Calculator and custom output parser
 │   └── weather.py        # Weather tool implementation
+├── .dockerignore         # docker ignore items file
 ├── .env                  # Environment variables
+├── .gitignore            # git ignore items file
+├── Dockerfile            # Main dockerfile file
 ├── requirements.txt      # Dependencies
+├── main.py
 └── README.md            # This file
 ```
 
 ## 🎮 How to Use Agent Binod
 
-### Quick Start
+### Quick Start (without docker)
 
 ```bash
 python main.py
+```
+
+### Quick Start (with docker)
+
+```bash
+docker build -t agent-binod:latest . # one time build
+docker run -it --rm --env-file .env agent-binod:latest
 ```
 
 ### Interactive Commands
