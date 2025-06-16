@@ -1,12 +1,16 @@
+import os
+from dotenv import load_dotenv
 from agent import ComprehensiveLangChainAgent
 from langchain_core.messages import HumanMessage
 
-from agent_libs.tools import CSVAnalysisTool
+load_dotenv()
+
+OPEN_AI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 
 
 def main():
     try:
-        agent = ComprehensiveLangChainAgent()
+        agent = ComprehensiveLangChainAgent(OPEN_AI_MODEL)
 
         # Interactive mode
         print(f"\n{'=' * 60}")

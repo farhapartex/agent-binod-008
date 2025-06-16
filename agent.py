@@ -1,4 +1,3 @@
-from dotenv import load_dotenv
 from datetime import datetime
 from typing import Dict, Any
 import os
@@ -14,21 +13,21 @@ from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import CharacterTextSplitter
 from langchain.memory import ChatMessageHistory
-
-
 from agent_libs.tools import CalculatorTool, CustomOutputParser, CSVAnalysisTool
 from agent_libs.weather import WeatherTool
-
-load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 
+
 class ComprehensiveLangChainAgent:
-    def __init__(self):
+    def __init__(self, model):
+        if not model:
+            raise Exception("Model could not be found!")
+
         self.llm = ChatOpenAI(
             temperature=0.7,
-            model="gpt-3.5-turbo",
+            model=model,
             max_tokens=1000,
             api_key=OPENAI_API_KEY
         )
