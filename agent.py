@@ -16,7 +16,7 @@ from langchain_text_splitters import CharacterTextSplitter
 from langchain.memory import ChatMessageHistory
 
 
-from agent_libs.tools import CalculatorTool, CustomOutputParser
+from agent_libs.tools import CalculatorTool, CustomOutputParser, CSVAnalysisTool
 from agent_libs.weather import WeatherTool
 
 load_dotenv()
@@ -50,6 +50,7 @@ class ComprehensiveLangChainAgent:
         * In a real app, this might be company docs, PDFs, web pages, etc.
         :return:
         """
+        # TODO: will make it dynamic later
         documents = [
             "LangChain is a powerful framework for developing applications powered by language models. It provides modular components and chains for building complex AI applications.",
             "Agents in LangChain can use tools to interact with the outside world. They can search the internet, perform calculations, access databases, and execute custom functions.",
@@ -72,6 +73,7 @@ class ComprehensiveLangChainAgent:
         calculator_tool = CalculatorTool()
         search_tool = DuckDuckGoSearchRun()
         wikipedia_tool = WikipediaAPIWrapper()
+        csv_analyzer = CSVAnalysisTool()
 
         def vector_search(query: str):
             try:
@@ -121,6 +123,26 @@ class ComprehensiveLangChainAgent:
                 name="topic_analysis",
                 description="Get both a summary and interesting questions about a topic simultaneously. Input should be any topic you want analyzed.",
                 func=lambda topic: self._format_topic_analysis(self.parallel_chain.invoke({"topic": topic})),
+            ),
+            Tool(
+                name="csv_loader",
+                description="Load a CSV file and get basic information about its structure. Input should be the file path.",
+                func=csv_analyzer.load_csv
+            ),
+            Tool(
+                name="csv_structure",
+                description="Get detailed data structure information of the loaded CSV file. Input can be anything (will be ignored).",
+                func=lambda x: csv_analyzer.get_data_structure()
+            ),
+            Tool(
+                name="csv_analysis",
+                description="Perform data analysis. Options: 'general', 'numeric', 'categorical', 'missing', 'correlation'. Input should be the analysis type.",
+                func=csv_analyzer.analyze_data
+            ),
+            Tool(
+                name="csv_column_info",
+                description="Get detailed information about a specific column. Input should be the column name.",
+                func=csv_analyzer.get_column_info
             )
         ]
 
