@@ -15,6 +15,7 @@ from langchain_text_splitters import CharacterTextSplitter
 from langchain.memory import ChatMessageHistory
 from agent_libs.tools import CalculatorTool, CustomOutputParser, CSVAnalysisTool
 from agent_libs.weather import WeatherTool
+from agent.vector_search import *
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
@@ -33,7 +34,7 @@ class ComprehensiveLangChainAgent:
         )
         self.embedding = OpenAIEmbeddings()
         self.memory = ChatMessageHistory()
-        self.setup_vector_store()
+        self.vectorstore = self.setup_vector_store()
         self.tools = self.setup_tools()
         self.setup_chains()
         self.output_parse = CustomOutputParser()
@@ -48,24 +49,10 @@ class ComprehensiveLangChainAgent:
         * In a real app, this might be company docs, PDFs, web pages, etc.
         :return:
         """
-        # TODO: will make it dynamic later
-        documents = [
-            "LangChain is a powerful framework for developing applications powered by language models. It provides modular components and chains for building complex AI applications.",
-            "Agents in LangChain can use tools to interact with the outside world. They can search the internet, perform calculations, access databases, and execute custom functions.",
-            "Memory in LangChain allows agents to remember previous conversations and maintain context across multiple interactions.",
-            "Chains in LangChain allow you to combine multiple components together using the new LCEL (LangChain Expression Language) syntax.",
-            "Vector stores enable semantic search and retrieval of relevant information using embeddings and similarity search algorithms.",
-            "LCEL (LangChain Expression Language) is the modern way to build chains using the pipe operator: prompt | llm | output_parser",
-            "Tools are functions that agents can call to perform specific tasks like web search, calculations, or database queries.",
-            "Output parsers help structure the LLM responses into specific formats like JSON, lists, or custom objects."
-        ]
-        text_splitter = CharacterTextSplitter(chunk_size=200, chunk_overlap=50, separator=". ")
-        texts = text_splitter.create_documents(documents)
-        for i, doc in enumerate(texts):
-            doc.metadata = {"chunk_id": i, "source": "langchain_docs",
-                            "created_at": datetime.now().isoformat()}
-
-        self.vector_store = FAISS.from_documents(texts, self.embedding)
+        documents = load_documents()
+        splits = split_documents(documents)
+        vectorstore = create_vector_store(splits)
+        return vectorstore
 
     def setup_tools(self):
         weather_tool = WeatherTool(api_key=WEATHER_API_KEY)
@@ -74,15 +61,9 @@ class ComprehensiveLangChainAgent:
         wikipedia_tool = WikipediaAPIWrapper()
         csv_analyzer = CSVAnalysisTool()
 
-        def vector_search(query: str):
-            try:
-                docs = self.vector_store.similarity_search(query, k=2)
-                return "\n".join([doc.page_content for doc in docs])
-            except Exception as e:
-                return f"Error searching knowledge base: {str(e)}"
-
         # TODO: will make it dynamic later
         tools = [
+            get_rag_tool(self.vectorstore),
             Tool(
                 name="Weather",
                 func=weather_tool.run,
@@ -102,11 +83,6 @@ class ComprehensiveLangChainAgent:
                 name="Wikipedia",
                 func=wikipedia_tool.run,
                 description="Search Wikipedia for information about a topic."
-            ),
-            Tool(
-                name="VectorSearch",
-                func=vector_search,
-                description="Search internal knowledge base for LangChain-related information."
             ),
             Tool(
                 name="expert_analysis",
@@ -331,15 +307,20 @@ class ComprehensiveLangChainAgent:
         # Create agent prompt
         agent_prompt = ChatPromptTemplate.from_messages([
             ("system", """Your name is Agent Binod. You are a helpful AI assistant with access to various tools. During first chat, inform your name to the user. Use the tools when needed to provide accurate and helpful responses.
+                    
+                    IMPORTANT INSTRUCTION: Follow this priority order when answering questions:
+        
+                    1. 🔍 FIRST: Always use vector_search tool to check if the information exists in your knowledge base
+                    2. 📋 If vector_search returns "NO_RELEVANT_DOCS_FOUND", then use other appropriate tools:
+                       - Weather: For weather information
+                       - Calculator: For mathematical calculations  
+                       - Search: For current internet information
+                       - Wikipedia: For general knowledge
+                       - Other specialized tools as needed
+                    3. 💡 If knowledge base has partial information, you can supplement with other tools
 
-                    Available tools:
-                    - weather: Get weather information for cities
-                    - calculator: Perform mathematical calculations  
-                    - search: Search the internet for current information
-                    - wikipedia: Get detailed information from Wikipedia
-                    - knowledge_search: Search LangChain knowledge base
-
-                    Always be helpful, accurate, and provide clear explanations."""),
+                    Always inform the user during first chat about your name and capabilities.
+                    Be helpful, accurate, and explain your reasoning when using multiple tools."""),
             ("human", "{input}"),
             ("placeholder", "{agent_scratchpad}"),
         ])
