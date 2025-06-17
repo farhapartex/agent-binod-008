@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from agent import ComprehensiveLangChainAgent
+from agent.core import ComprehensiveLangChainAgent
 from langchain_core.messages import HumanMessage
 
 load_dotenv()

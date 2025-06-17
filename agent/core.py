@@ -39,7 +39,6 @@ class ComprehensiveLangChainAgent:
         self.output_parse = CustomOutputParser()
         self.setup_agent()
 
-
     def setup_vector_store(self):
         """
         * Vector stores enable semantic search - find meaning, not just keywords
@@ -63,12 +62,13 @@ class ComprehensiveLangChainAgent:
         text_splitter = CharacterTextSplitter(chunk_size=200, chunk_overlap=50, separator=". ")
         texts = text_splitter.create_documents(documents)
         for i, doc in enumerate(texts):
-            doc.metadata = {"chunk_id": i, "source": "langchain_docs", "created_at": datetime.now().isoformat()}
+            doc.metadata = {"chunk_id": i, "source": "langchain_docs",
+                            "created_at": datetime.now().isoformat()}
 
         self.vector_store = FAISS.from_documents(texts, self.embedding)
 
     def setup_tools(self):
-        weather_tool =WeatherTool(api_key=WEATHER_API_KEY)
+        weather_tool = WeatherTool(api_key=WEATHER_API_KEY)
         calculator_tool = CalculatorTool()
         search_tool = DuckDuckGoSearchRun()
         wikipedia_tool = WikipediaAPIWrapper()
@@ -116,12 +116,14 @@ class ComprehensiveLangChainAgent:
             Tool(
                 name="learning_plan",
                 description="Create a comprehensive learning plan with summary, questions, and next steps for any topic. Input should be a topic you want to study.",
-                func=lambda topic: self._format_learning_plan(self.sequential_chain.invoke({"topic": topic})),
+                func=lambda topic: self._format_learning_plan(
+                    self.sequential_chain.invoke({"topic": topic})),
             ),
             Tool(
                 name="topic_analysis",
                 description="Get both a summary and interesting questions about a topic simultaneously. Input should be any topic you want analyzed.",
-                func=lambda topic: self._format_topic_analysis(self.parallel_chain.invoke({"topic": topic})),
+                func=lambda topic: self._format_topic_analysis(
+                    self.parallel_chain.invoke({"topic": topic})),
             ),
             Tool(
                 name="csv_loader",
@@ -153,10 +155,10 @@ class ComprehensiveLangChainAgent:
             formatted = f"""**Learning Plan for {result.get('topic', 'Unknown Topic').title()}**
                 **Summary:**
                 {result.get('summary', 'No summary available')}
-            
+
                 ❓ **Key Questions to Explore:**
                 {result.get('questions', 'No questions available')}
-            
+
                 **Next Steps:**
                 {result.get('next_steps', 'No next steps available')}
                 """
@@ -176,7 +178,6 @@ class ComprehensiveLangChainAgent:
             return formatted.strip()
         except Exception as e:
             return f"Error formatting topic analysis: {str(e)}"
-
 
     def setup_chains(self):
         """
@@ -261,7 +262,8 @@ class ComprehensiveLangChainAgent:
         )
 
         summary_prompt = PromptTemplate.from_template("Provide a brief summary of: {topic}")
-        questions_prompt = PromptTemplate.from_template("Generate 3 interesting questions about: {topic}")
+        questions_prompt = PromptTemplate.from_template(
+            "Generate 3 interesting questions about: {topic}")
 
         self.parallel_chain = RunnableParallel(
             summary=summary_prompt | self.llm | StrOutputParser(),
