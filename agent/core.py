@@ -1,17 +1,14 @@
 from datetime import datetime
 from typing import Dict, Any
 import os
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableParallel
-from langchain_core.tools import Tool
+from langchain_core.runnables import RunnableLambda, RunnableParallel
 from langchain_core.messages import HumanMessage
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.utilities import WikipediaAPIWrapper
-from langchain_community.vectorstores import FAISS
-from langchain_text_splitters import CharacterTextSplitter
 from langchain.memory import ChatMessageHistory
 from agent_libs.tools import CalculatorTool, CustomOutputParser, CSVAnalysisTool
 from agent_libs.weather import WeatherTool
@@ -22,9 +19,11 @@ WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 
 
 class ComprehensiveLangChainAgent:
-    def __init__(self, model):
+    def __init__(self, model, pdf_file_path=None):
         if not model:
             raise Exception("Model could not be found!")
+
+        self.pdf_file_path = pdf_file_path
 
         self.llm = ChatOpenAI(
             temperature=0.7,
@@ -49,7 +48,9 @@ class ComprehensiveLangChainAgent:
         * In a real app, this might be company docs, PDFs, web pages, etc.
         :return:
         """
-        documents = load_documents()
+        if not self.pdf_file_path:
+            return None
+        documents = load_documents(self.pdf_file_path)
         splits = split_documents(documents)
         vectorstore = create_vector_store(splits)
         return vectorstore
@@ -61,7 +62,6 @@ class ComprehensiveLangChainAgent:
         wikipedia_tool = WikipediaAPIWrapper()
         csv_analyzer = CSVAnalysisTool()
 
-        # TODO: will make it dynamic later
         tools = [
             get_rag_tool(self.vectorstore),
             Tool(

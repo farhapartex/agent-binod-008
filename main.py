@@ -6,11 +6,12 @@ from langchain_core.messages import HumanMessage
 load_dotenv()
 
 OPEN_AI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+PDF_FILE_PATH = os.getenv("PDF_FILE_PATH", None)
 
 
 def main():
     try:
-        agent = ComprehensiveLangChainAgent(OPEN_AI_MODEL)
+        agent = ComprehensiveLangChainAgent(OPEN_AI_MODEL, PDF_FILE_PATH)
 
         # Interactive mode
         print(f"\n{'=' * 60}")

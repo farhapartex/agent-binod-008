@@ -2,27 +2,34 @@ import os
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_openai import OpenAIEmbeddings
 from langchain_core.tools import Tool
 
-def load_documents():
+def load_documents(pdf_file_path):
     documents = []
-
-    sample_docs = [
-        Document(
-            page_content="LangChain is a framework for developing applications powered by language models. It provides tools for document loading, text splitting, and vector storage.",
-            metadata={"source": "langchain_intro.txt"}
-        ),
-        Document(
-            page_content="Vector databases store embeddings of text chunks. Popular options include Chroma, Pinecone, and FAISS. They enable semantic search.",
-            metadata={"source": "vector_db_info.txt"}
-        ),
-        Document(
-            page_content="OpenAI provides powerful language models like GPT-4 and GPT-3.5-turbo. These models can understand context and generate human-like responses.",
-            metadata={"source": "openai_models.txt"}
-        )
+    pdf_files = [
+        pdf_file_path
     ]
-    return sample_docs
+
+    for pdf_file in pdf_files:
+        if os.path.exists(pdf_file):
+            try:
+                loader = PyPDFLoader(pdf_file)
+                pdf_docs = loader.load()
+
+                for i, doc in enumerate(pdf_docs):
+                    doc.metadata.update({
+                        "source": pdf_file,
+                        "page": i+1,
+                        "file_type": "pdf"
+                    })
+
+                documents.extend(pdf_docs)
+            except Exception as e:
+                print(f"Error loading pdf: {e}")
+
+    return documents
 
 
 def split_documents(documents):
