@@ -63,7 +63,9 @@ WEATHER_API_KEY=your_openweathermap_api_key_here
 
 ```
 agent-binod/
-├── agent.py              # Main agent implementation
+├── agent
+│   ├── __init__.py
+|   ├── core.py           # Main file which have agent details
 ├── agent_libs/
 │   ├── tools.py          # Calculator and custom output parser
 │   └── weather.py        # Weather tool implementation
@@ -100,6 +102,11 @@ Once running, you can use these special commands:
 - **`memory`** - View conversation history
 
 ### Example Conversations
+
+#### Vector search
+```
+If you want to feed agent with your own data, you can mention any pdf file in .env file. The pdf file will be takes automatically during first loading. That's it. Next time you will ask anything, Agent Binod will first look at vector db, if not find any resource then will go for other tools. 
+```
 
 #### 📊 CSV Data Analysis
 ```
