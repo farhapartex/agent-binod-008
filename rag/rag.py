@@ -7,6 +7,8 @@ from langchain_core.stores import InMemoryStore
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
+from langchain.retrievers.ensemble import EnsembleRetriever
+from langchain_community.retrievers.bm25 import BM25Retriever
 
 class ParentDocumentRAG:
     def __init__(self, embeddings: OpenAIEmbeddings):
@@ -43,7 +45,7 @@ class ParentDocumentRAG:
         self.vectorstore = vectorstore
         self.retriever = retriever
 
-    def search_with_parent_context(self, query: str) -> List[Document]:
+    def search(self, query: str) -> List[Document]:
         if not self.retriever:
             raise ValueError("Retriever not initialized")
 
@@ -71,7 +73,43 @@ class MultiQueryRAG:
 
         return multi_query_retriever
 
-    def search_with_multiple_queries(self, query: str) -> List[Document]:
+    def search(self, query: str) -> List[Document]:
         retriever = self.create_multi_query_retriever()
         results = retriever.get_relevant_documents(query)
+        return results
+
+
+class HybridSearchRAG:
+    """Hybrid Search: Combine semantic search with keyword search"""
+
+    def __init__(self, documents: List[Document], embeddings: OpenAIEmbeddings):
+        self.documents = documents
+        self.embeddings = embeddings
+        self.hybrid_retriever = None
+
+    def create_hybrid_retriever(self) -> EnsembleRetriever:
+        """Create hybrid retriever combining semantic and keyword search"""
+        vectorstore = Chroma.from_documents(
+            documents=self.documents,
+            embedding=self.embeddings,
+            persist_directory="./hybrid_db"
+        )
+        semantic_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+
+        keyword_retriever = BM25Retriever.from_documents(self.documents)
+        keyword_retriever.k = 5
+
+        hybrid_retriever = EnsembleRetriever(
+            retrievers=[semantic_retriever, keyword_retriever],
+            weights=[0.6, 0.4]  # 60% semantic, 40% keyword
+        )
+        self.hybrid_retriever = hybrid_retriever
+        return hybrid_retriever
+
+    def search(self, query: str) -> List[Document]:
+        """Search using hybrid approach"""
+        if not self.hybrid_retriever:
+            self.create_hybrid_retriever()
+
+        results = self.hybrid_retriever.get_relevant_documents(query)
         return results
