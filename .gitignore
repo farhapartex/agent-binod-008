@@ -6,3 +6,5 @@ agent_libs/__pycache__
 *.py[cod]
 chroma_db
 chroma.sqlite3
+advanced_rag_db
+hybrid_db
