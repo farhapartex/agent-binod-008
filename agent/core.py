@@ -1,7 +1,5 @@
 from datetime import datetime
 from typing import Dict, Any
-import os
-from langchain_openai import ChatOpenAI
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -13,6 +11,7 @@ from langchain.memory import ChatMessageHistory
 from agent_libs.tools import CalculatorTool, CustomOutputParser, CSVAnalysisTool
 from agent_libs.weather import WeatherTool
 from agent.vector_search import *
+from rag.powers import AdvancedRAGSystem
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
@@ -33,7 +32,8 @@ class ComprehensiveLangChainAgent:
         )
         self.embedding = OpenAIEmbeddings()
         self.memory = ChatMessageHistory()
-        self.vectorstore = self.setup_vector_store()
+        #self.vectorstore = self.setup_vector_store()
+        self.vectorstore = None
         self.tools = self.setup_tools()
         self.setup_chains()
         self.output_parse = CustomOutputParser()
@@ -61,9 +61,12 @@ class ComprehensiveLangChainAgent:
         search_tool = DuckDuckGoSearchRun()
         wikipedia_tool = WikipediaAPIWrapper()
         csv_analyzer = CSVAnalysisTool()
+        advanced_rag = AdvancedRAGSystem(self.llm)
+        advanced_rag.setup_all_retrievers([self.pdf_file_path])
+        self.vectorstore = advanced_rag.vectorstore
 
         tools = [
-            get_rag_tool(self.vectorstore),
+            advanced_rag.create_advanced_rag_tool("hybrid"),
             Tool(
                 name="Weather",
                 func=weather_tool.run,
@@ -126,7 +129,6 @@ class ComprehensiveLangChainAgent:
         return tools
 
     def _format_learning_plan(self, result: Dict) -> str:
-        """Format learning plan result for better readability"""
         try:
             formatted = f"""**Learning Plan for {result.get('topic', 'Unknown Topic').title()}**
                 **Summary:**
@@ -145,7 +147,7 @@ class ComprehensiveLangChainAgent:
     def _format_topic_analysis(self, result: Dict) -> str:
         """Format topic analysis result for better readability"""
         try:
-            formatted = f"""🔍 **Topic Analysis**
+            formatted = f"""**Topic Analysis**
                 **Summary:**
                 {result.get('summary', 'No summary available')}
                 ❓ **Interesting Questions:**
@@ -310,14 +312,14 @@ class ComprehensiveLangChainAgent:
                     
                     IMPORTANT INSTRUCTION: Follow this priority order when answering questions:
         
-                    1. 🔍 FIRST: Always use vector_search tool to check if the information exists in your knowledge base
-                    2. 📋 If vector_search returns "NO_RELEVANT_DOCS_FOUND", then use other appropriate tools:
+                    1. FIRST: Always use advanced_rag_search tool to check if the information exists in your knowledge base
+                    2. If advanced_rag_search returns "NO_RELEVANT_DOCS_FOUND", then use other appropriate tools:
                        - Weather: For weather information
                        - Calculator: For mathematical calculations  
                        - Search: For current internet information
                        - Wikipedia: For general knowledge
                        - Other specialized tools as needed
-                    3. 💡 If knowledge base has partial information, you can supplement with other tools
+                    3. If knowledge base has partial information, you can supplement with other tools
 
                     Always inform the user during first chat about your name and capabilities.
                     Be helpful, accurate, and explain your reasoning when using multiple tools."""),
@@ -334,14 +336,12 @@ class ComprehensiveLangChainAgent:
         )
 
     def run_simple_chain(self, topic: str):
-        """Demonstrate simple LLM chain"""
         print(f"\n=== Simple Chain Demo ===")
         result = self.simple_chain.invoke(topic=topic)
         print(f"Result: {result}")
         return result
 
     def run_structured_chain(self, topic: str):
-        """Demonstrate structured output chain"""
         print(f"\nStructured Chain Demo")
         print(f"Topic: {topic}")
         try:
@@ -355,7 +355,6 @@ class ComprehensiveLangChainAgent:
             return None
 
     def run_parallel_chain(self, topic: str):
-        """Demonstrate parallel processing"""
         print(f"\nParallel Chain Demo")
         print(f"Topic: {topic}")
         try:
@@ -368,7 +367,6 @@ class ComprehensiveLangChainAgent:
             return None
 
     def run_sequential_chain(self, topic: str):
-        """Demonstrate sequential chain"""
         print(f"\n=== Sequential Chain Demo ===")
         result = self.sequential_chain.invoke({"topic": topic})
         print(f"Summary: {result['summary']}")
@@ -376,14 +374,12 @@ class ComprehensiveLangChainAgent:
         return result
 
     def run_router_chain(self, question: str):
-        """Demonstrate router chain"""
         print(f"\n=== Router Chain Demo ===")
         result = self.routing_chain.invoke(question)
         print(f"Result: {result}")
         return result
 
     def vector_search_demo(self, query: str):
-        """Demonstrate vector store search"""
         try:
             print(f"\n=== Vector Search Demo ===")
             docs = self.vector_store.similarity_search(query, k=3)
@@ -398,7 +394,6 @@ class ComprehensiveLangChainAgent:
             return None
 
     def agent_conversation(self, message: str):
-        """Main agent conversation method"""
         print(f"\n=== Agent Conversation ===")
         print(f"User: {message}")
 
@@ -412,8 +407,6 @@ class ComprehensiveLangChainAgent:
             return error_msg
 
     def chat_with_agent(self, message: str):
-        """Chat with the main agent"""
-
         try:
             # Add to memory
             self.memory.add_user_message(message)
